@@ -1,5 +1,5 @@
 description: Simple publish-subscribe protocol. Connects low power IoT clients to MQTT.
-url: https://github.com/DavidB137/spsp
+url: https://github.com/dbnk0/spsp
 dependencies:
   idf:
     version: ">=5.2"

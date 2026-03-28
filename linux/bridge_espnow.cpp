@@ -72,7 +72,7 @@ void printHelp()
 {
     std::cerr << "Usage: spsp_bridge_espnow CONFIG_FILE.ini" << std::endl
               << std::endl
-              << "See: https://github.com/DavidB137/spsp/blob/main/linux/"
+              << "See: https://github.com/dbnk0/spsp/blob/main/linux/"
                  "bridge_espnow_config.ini.example" << std::endl;
 }
 

@@ -38,7 +38,7 @@ support for monitor mode and packet injection.
    ```yml
    dependencies:
      spsp:
-       git: https://github.com/DavidB137/spsp.git
+       git: https://github.com/dbnk0/spsp.git
    ```
 3. Create `sdkconfig.defaults` file incide root project directory:
    ```
@@ -108,7 +108,7 @@ sudo spsp_bridge_espnow PATH_TO_YOUR_CONFIG.ini
 
 ### Setup for OpenWrt
 
-See OpenWrt feed repository for SPSP: https://github.com/DavidB137/spsp-openwrt
+See OpenWrt feed repository for SPSP: https://github.com/dbnk0/spsp-openwrt
 
 Generally, [Linux process](#setup-for-linux) applies.
 SPSP binaries, however, come packaged, so you will only need to setup network

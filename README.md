@@ -25,7 +25,7 @@ WiFi clients and IoT devices.
 
 This project currently requires C++ 17 or newer.
 
-If you want to use SPSP in your ESP-IDF-based firmware, ESP-IDF[^espidf] v5.1
+If you want to use SPSP in your ESP-IDF-based firmware, ESP-IDF[^espidf] v5.2
 or newer is required. PlatformIO[^platformio] development is also supported.
 
 If you want to use SPSP on Linux, you will need CMake and WiFi card with

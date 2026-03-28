@@ -9,6 +9,7 @@
 
 #include <thread>
 
+#include "esp_idf_version.h"
 #include "esp_now.h"
 
 #include "spsp/espnow_adapter.hpp"
@@ -46,16 +47,27 @@ namespace SPSP::LocalLayers::ESPNOW
     }
 
     // Wrapper for C send callback
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+    void _sendCallback(const esp_now_send_info_t *tx_info, esp_now_send_status_t status)
+    {
+        auto cb = _adapterInstance->getSendCb();
+        if (cb == nullptr) {
+            return;
+        }
+
+        cb(tx_info->des_addr, status == ESP_NOW_SEND_SUCCESS);
+    }
+#else
     void _sendCallback(const uint8_t *dst, esp_now_send_status_t status)
     {
         auto cb = _adapterInstance->getSendCb();
-
         if (cb == nullptr) {
             return;
         }
 
         cb(dst, status == ESP_NOW_SEND_SUCCESS);
     }
+#endif
 
     Adapter::Adapter()
     {

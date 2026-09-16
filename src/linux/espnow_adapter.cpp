@@ -248,6 +248,7 @@ namespace SPSP::LocalLayers::ESPNOW
     void Adapter::handlerThread()
     {
         constexpr size_t EVENTS_LEN = 1;
+        constexpr uint32_t SOCKET_FATAL_EVENTS = EPOLLERR | EPOLLHUP | EPOLLRDHUP;
         epoll_event events[EVENTS_LEN];
 
         // Buffer for incoming packets
@@ -260,32 +261,65 @@ namespace SPSP::LocalLayers::ESPNOW
                     continue;
                 } else {
                     SPSP_LOGE("Receive error: %s", strerror(errno));
+                    m_fatalError = true;
                     return;
                 }
             }
 
-            if (events[0].events & EPOLLIN) {
-                if (events[0].data.fd == m_sock.fd) {
-                    // Received data
-                    size_t len = read(events[0].data.fd, buf, MAX_PACKET_SIZE);
-
-                    if (len == 0) {
-                        continue;
-                    }
-
-                    if (len < 0) {
-                        SPSP_LOGE("Receive read: %s", strerror(errno));
-                        continue;
-                    }
-
-                    this->processIEEE80211RawPacket(buf, len);
-                }
-
-                if (events[0].data.fd == m_eventFd.fd) {
-                    // Destructor signal
-                    return;
-                }
+            if (ret == 0) {
+                continue;
             }
+
+            const auto& event = events[0];
+
+            if (event.data.fd == m_eventFd.fd) {
+                // Destructor signal
+                return;
+            }
+
+            if (event.data.fd != m_sock.fd) {
+                SPSP_LOGW("Receive event for unknown file descriptor %d",
+                          event.data.fd);
+                continue;
+            }
+
+            if (event.events & SOCKET_FATAL_EVENTS) {
+                // EPOLLERR and EPOLLHUP are reported even when not requested.
+                // If ignored, epoll_wait() returns the same event immediately
+                // forever, causing a busy loop after the monitor interface is
+                // removed or reconfigured.
+                SPSP_LOGE("Receive socket failed (epoll events: 0x%x)",
+                          event.events);
+                m_fatalError = true;
+                return;
+            }
+
+            if (!(event.events & EPOLLIN)) {
+                SPSP_LOGW("Receive socket has unsupported epoll events: 0x%x",
+                          event.events);
+                continue;
+            }
+
+            // Received data
+            ssize_t len = read(m_sock.fd, buf, MAX_PACKET_SIZE);
+
+            if (len < 0) {
+                if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
+                    continue;
+                }
+
+                SPSP_LOGE("Receive read: %s", strerror(errno));
+                m_fatalError = true;
+                return;
+            }
+
+            if (len == 0) {
+                SPSP_LOGE("Receive socket closed");
+                m_fatalError = true;
+                return;
+            }
+
+            this->processIEEE80211RawPacket(buf, static_cast<size_t>(len));
         }
     }
 

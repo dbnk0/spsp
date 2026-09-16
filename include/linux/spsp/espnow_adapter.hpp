@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <string>
 #include <thread>
@@ -60,6 +61,7 @@ namespace SPSP::LocalLayers::ESPNOW
         AdapterRecvCb m_recvCb = nullptr;               //!< Receive callback
         AdapterSendCb m_sendCb = nullptr;               //!< Send callback
         std::thread m_thread;                           //!< Handler thread
+        std::atomic_bool m_fatalError = false;           //!< Whether packet capture has failed
 
     public:
         /**
@@ -78,6 +80,17 @@ namespace SPSP::LocalLayers::ESPNOW
          *
          */
         ~Adapter();
+
+        /**
+         * @brief Checks whether packet capture failed irrecoverably.
+         *
+         * A failure means the packet socket can no longer be used. The owner
+         * should destroy and recreate the adapter.
+         *
+         * @return true Packet capture failed
+         * @return false Packet capture is still operational
+         */
+        bool hasFatalError() const noexcept { return m_fatalError.load(); }
 
         /**
          * @brief Sets receive callback

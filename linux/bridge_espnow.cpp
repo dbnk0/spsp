@@ -32,21 +32,41 @@ enum ReturnCode { SUCCESS = 0, FAIL = 1 };
 enum FarLayer { FL_MQTT, FL_LOCAL_BROKER };
 
 /**
- * @brief Blocks until SIGINT or SIGTERM is received
+ * @brief Blocks SIGINT and SIGTERM in the current thread
  *
  */
-void waitForTermination()
+void blockTerminationSignals()
 {
-    // Set signal handlers
     sigset_t sigset;
     sigemptyset(&sigset);
     sigaddset(&sigset, SIGINT);
     sigaddset(&sigset, SIGTERM);
     pthread_sigmask(SIG_BLOCK, &sigset, nullptr);
+}
 
-    // Wait for termination
-    int sig;
-    sigwait(&sigset, &sig);
+/**
+ * @brief Blocks until SIGINT/SIGTERM is received or packet capture fails
+ *
+ * @return true A termination signal was received
+ * @return false Local layer failed and the process should be restarted
+ */
+bool waitForTermination(const SPSP::LocalLayers::ESPNOW::Adapter& llAdapter)
+{
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset, SIGINT);
+    sigaddset(&sigset, SIGTERM);
+
+    while (!llAdapter.hasFatalError()) {
+        const timespec timeout = { 1, 0 };
+        int sig = sigtimedwait(&sigset, nullptr, &timeout);
+
+        if (sig == SIGINT || sig == SIGTERM) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -78,6 +98,10 @@ void printHelp()
 
 int main(int argc, char const* argv[])
 {
+    // Worker threads inherit this mask, keeping termination controlled by
+    // waitForTermination().
+    blockTerminationSignals();
+
     if (argc != 2 || argv[1][0] == '-') {
         // Print help
         printHelp();
@@ -164,8 +188,9 @@ int main(int argc, char const* argv[])
             // Create bridge
             SPSP::Nodes::Bridge br{&ll, &fl};
 
-            // Block
-            waitForTermination();
+            if (!waitForTermination(llAdapter)) {
+                throw SPSP::Exception("Local layer failure");
+            }
         } else if (farLayer == FL_LOCAL_BROKER) {
             // Initialize local broker
             SPSP::FarLayers::LocalBroker::LocalBroker fl{localBrokerTopicPrefix};
@@ -173,8 +198,9 @@ int main(int argc, char const* argv[])
             // Create bridge
             SPSP::Nodes::Bridge br{&ll, &fl};
 
-            // Block
-            waitForTermination();
+            if (!waitForTermination(llAdapter)) {
+                throw SPSP::Exception("Local layer failure");
+            }
         }
     } catch (const SPSP::Exception& e) {
         std::cerr << "SPSP exception: " << e.what() << std::endl;

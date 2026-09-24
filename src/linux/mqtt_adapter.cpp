@@ -19,6 +19,30 @@ using namespace std::chrono_literals;
 // Log tag
 static const char* SPSP_LOG_TAG = "SPSP/Far/MQTT/Adapter";
 
+namespace
+{
+    // Paho invokes MQTTAsync_connected() on its receive thread while holding
+    // its internal mutex. MQTTAsync_waitForCompletion() would try to acquire
+    // the same mutex and deadlock that thread.
+    thread_local bool inConnectedCallback = false;
+
+    class ConnectedCallbackScope
+    {
+        bool m_previous;
+
+    public:
+        ConnectedCallbackScope() : m_previous{inConnectedCallback}
+        {
+            inConnectedCallback = true;
+        }
+
+        ~ConnectedCallbackScope()
+        {
+            inConnectedCallback = m_previous;
+        }
+    };
+} // namespace
+
 namespace SPSP::FarLayers::MQTT
 {
     Adapter::Adapter(const Config& conf) : m_conf{conf}
@@ -142,6 +166,15 @@ namespace SPSP::FarLayers::MQTT
             return false;
         }
 
+        if (inConnectedCallback) {
+            // The request has been queued. Do not wait for its SUBACK here:
+            // this is Paho's receive thread, which must return before it can
+            // process that acknowledgement.
+            SPSP_LOGD("Subscribe request queued during reconnection: '%s'",
+                      topic.c_str());
+            return true;
+        }
+
         // Wait for result
         ret = MQTTAsync_waitForCompletion(m_mqtt, opts.token, 5000);
         return ret == MQTTASYNC_SUCCESS;
@@ -169,6 +202,7 @@ namespace SPSP::FarLayers::MQTT
         SPSP_LOGI("Connected");
 
         if (inst->getConnectedCb() != nullptr) {
+            const ConnectedCallbackScope scope;
             inst->getConnectedCb()();
         }
     }

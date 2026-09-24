@@ -243,16 +243,23 @@ namespace SPSP::Nodes
          */
         void resubscribeAll()
         {
-            const std::scoped_lock lock(m_mutex);
-
-            m_subDB.forEach(
-                [this](const std::string& topic, const SubDBMapT& topicEntries) {
-                    if (!this->getFarLayer()->subscribe(topic)) {
-                        SPSP_LOGW("Resubscribe to topic %s failed",
-                                  topic.c_str());
+            std::vector<std::string> topics;
+            {
+                const std::scoped_lock lock(m_mutex);
+                m_subDB.forEach(
+                    [&topics](const std::string& topic,
+                              const SubDBMapT&) {
+                        topics.push_back(topic);
                     }
+                );
+            }
+
+            for (const auto& topic : topics) {
+                if (!this->getFarLayer()->subscribe(topic)) {
+                    SPSP_LOGW("Resubscribe to topic %s failed",
+                              topic.c_str());
                 }
-            );
+            }
         }
 
         /**

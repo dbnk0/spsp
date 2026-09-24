@@ -61,7 +61,10 @@ namespace SPSP::FarLayers::MQTT
         /**
          * @brief Subscribes to given topic
          *
-         * This blocks.
+         * This blocks, except when called from the Paho connection callback.
+         * In that context the request is queued and this function returns
+         * before the broker acknowledges it, because waiting would deadlock
+         * Paho's receive thread.
          *
          * @param topic Topic
          * @return true Subscribe successful
